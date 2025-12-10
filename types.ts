@@ -1,5 +1,4 @@
 
-
 export interface GeneratedImage {
     id: string;
     url: string;
@@ -9,6 +8,7 @@ export interface GeneratedImage {
     model: string;
     seed?: number;
     steps?: number;
+    guidanceScale?: number;
     duration?: number;
     isBlurred?: boolean;
     isUpscaled?: boolean;
@@ -22,8 +22,14 @@ export type ModelOption =
     | "qwen-image-fast" 
     | "ovis-image" 
     | "Qwen-Image"
+    | "flux-1-schnell"
+    | "FLUX_1-Krea-dev"
+    | "FLUX.1-dev"
     | "Tongyi-MAI/Z-Image-Turbo"
-    | "Qwen/Qwen-Image";
+    | "Qwen/Qwen-Image"
+    | "black-forest-labs/FLUX.2-dev"
+    | "black-forest-labs/FLUX.1-Krea-dev"
+    | "MusePublic/489_ckpt_FLUX_1";
 
 export type ProviderOption = "huggingface" | "gitee" | "modelscope";
 
@@ -33,4 +39,5 @@ export interface GenerationParams {
     aspectRatio: AspectRatioOption;
     seed?: number;
     steps?: number;
+    guidanceScale?: number;
 }

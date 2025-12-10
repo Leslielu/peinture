@@ -1,11 +1,11 @@
 
-
 import { GeneratedImage, AspectRatioOption, ModelOption } from "../types";
 import { generateUUID, getSystemPromptContent, FIXED_SYSTEM_PROMPT_SUFFIX, getOptimizationModel } from "./utils";
 
 const ZIMAGE_BASE_API_URL = "https://luca115-z-image-turbo.hf.space";
 const QWEN_IMAGE_BASE_API_URL = "https://mcp-tools-qwen-image-fast.hf.space";
 const OVIS_IMAGE_BASE_API_URL = "https://aidc-ai-ovis-image-7b.hf.space";
+const FLUX_SCHNELL_BASE_API_URL = "https://black-forest-labs-flux-1-schnell.hf.space";
 const UPSCALER_BASE_API_URL = "https://tuan2308-upscaler.hf.space";
 const POLLINATIONS_API_URL = "https://text.pollinations.ai/openai";
 
@@ -25,14 +25,14 @@ const getUTCDatesString = () => new Date().toISOString().split('T')[0];
 const getTokenStatusStore = (): TokenStatusStore => {
   const defaultStore = { date: getUTCDatesString(), exhausted: {} };
   if (typeof localStorage === 'undefined') return defaultStore;
-  
+
   try {
     const raw = localStorage.getItem(TOKEN_STATUS_KEY);
     if (!raw) return defaultStore;
     const store = JSON.parse(raw);
     // Reset if it's a new day (UTC)
     if (store.date !== getUTCDatesString()) {
-      return defaultStore; 
+      return defaultStore;
     }
     return store;
   } catch {
@@ -82,33 +82,33 @@ const markTokenExhausted = (token: string) => {
 
 const runWithTokenRetry = async <T>(operation: (token: string | null) => Promise<T>): Promise<T> => {
   const tokens = getTokens();
-  
+
   // If no tokens configured, run once with no token (public quota)
   if (tokens.length === 0) {
-      return operation(null);
+    return operation(null);
   }
 
   let lastError: any;
   let attempts = 0;
   // Limit loops to number of tokens
-  const maxAttempts = tokens.length + 1; 
+  const maxAttempts = tokens.length + 1;
 
   while (attempts < maxAttempts) {
     attempts++;
     const token = getNextAvailableToken();
-    
+
     // If we have tokens configured but all are exhausted
     if (!token) {
-       throw new Error(QUOTA_ERROR_KEY);
+      throw new Error(QUOTA_ERROR_KEY);
     }
 
     try {
       return await operation(token);
     } catch (error: any) {
       lastError = error;
-      
-      const isQuotaError = 
-        error.message === QUOTA_ERROR_KEY || 
+
+      const isQuotaError =
+        error.message === QUOTA_ERROR_KEY ||
         error.message?.includes("429") ||
         error.status === 429;
 
@@ -122,51 +122,37 @@ const runWithTokenRetry = async <T>(operation: (token: string | null) => Promise
       throw error;
     }
   }
-  
+
   throw lastError || new Error("error_api_connection");
 };
 
 // --- Service Logic ---
 
-const getZImageDimensions = (ratio: AspectRatioOption, enableHD: boolean): { width: number; height: number } => {
-  if (enableHD) {
-    switch (ratio) {
-      case "16:9":
-        return { width: 2048, height: 1152 };
-      case "4:3":
-        return { width: 2048, height: 1536 };
-      case "3:2":
-        return { width: 1920, height: 1280 };
-      case "9:16":
-        return { width: 1152, height: 2048 };
-      case "3:4":
-        return { width: 1536, height: 2048 };
-      case "2:3":
-        return { width: 1280, height: 1920 };
-      case "1:1":
-      default:
-        return { width: 2048, height: 2048 };
-    }
-  } else {
-      switch (ratio) {
-      case "16:9":
-        return { width: 1024, height: 576 };
-      case "4:3":
-        return { width: 1024, height: 768 };
-      case "3:2":
-        return { width: 960, height: 640 };
-      case "9:16":
-        return { width: 576, height: 1024 };
-      case "3:4":
-        return { width: 768, height: 1024 };
-      case "2:3":
-        return { width: 640, height: 960 };
-      case "1:1":
-      default:
-        return { width: 1024, height: 1024 };
-    }
+const getBaseDimensions = (ratio: AspectRatioOption) => {
+  switch (ratio) {
+    case "16:9": return { width: 1024, height: 576 };
+    case "4:3": return { width: 1024, height: 768 };
+    case "3:2": return { width: 960, height: 640 };
+    case "9:16": return { width: 576, height: 1024 };
+    case "3:4": return { width: 768, height: 1024 };
+    case "2:3": return { width: 640, height: 960 };
+    case "1:1": default: return { width: 1024, height: 1024 };
   }
-};
+}
+
+const getDimensions = (ratio: AspectRatioOption, enableHD: boolean): { width: number; height: number } => {
+  const base = getBaseDimensions(ratio);
+
+  if (enableHD) {
+    // Both Z-Image Turbo and Flux models use 2x multiplier for HD
+    return {
+      width: Math.round(base.width * 2),
+      height: Math.round(base.height * 2)
+    };
+  }
+
+  return base;
+}
 
 const getAuthHeaders = (token: string | null): Record<string, string> => {
   const headers: Record<string, string> = {
@@ -212,27 +198,27 @@ const generateZImage = async (
   enableHD: boolean = false,
   steps: number = 9
 ): Promise<GeneratedImage> => {
-  let { width, height } = getZImageDimensions(aspectRatio, enableHD);
+  let { width, height } = getDimensions(aspectRatio, enableHD);
 
   return runWithTokenRetry(async (token) => {
     try {
-        const queue = await fetch(ZIMAGE_BASE_API_URL + '/gradio_api/call/generate_image', {
+      const queue = await fetch(ZIMAGE_BASE_API_URL + '/gradio_api/call/generate_image', {
         method: "POST",
         headers: getAuthHeaders(token),
         body: JSON.stringify({
-            data: [prompt, height, width, steps, seed, false]
+          data: [prompt, height, width, steps, seed, false]
         })
-        });
-        const { event_id } = await queue.json();
-        const response = await fetch(ZIMAGE_BASE_API_URL + '/gradio_api/call/generate_image/' + event_id, {
+      });
+      const { event_id } = await queue.json();
+      const response = await fetch(ZIMAGE_BASE_API_URL + '/gradio_api/call/generate_image/' + event_id, {
         headers: getAuthHeaders(token)
-        });
-        const result = await response.text();
-        const data = extractCompleteEventData(result);
+      });
+      const result = await response.text();
+      const data = extractCompleteEventData(result);
 
-        if (!data) throw new Error("error_invalid_response");
+      if (!data) throw new Error("error_invalid_response");
 
-        return {
+      return {
         id: generateUUID(),
         url: data[0].url,
         model: 'z-image-turbo',
@@ -241,10 +227,55 @@ const generateZImage = async (
         timestamp: Date.now(),
         seed,
         steps
-        };
+      };
     } catch (error) {
-        console.error("Z-Image Turbo Generation Error:", error);
-        throw error;
+      console.error("Z-Image Turbo Generation Error:", error);
+      throw error;
+    }
+  });
+};
+
+const generateFluxSchnellImage = async (
+  prompt: string,
+  aspectRatio: AspectRatioOption,
+  seed: number = Math.round(Math.random() * 2147483647),
+  enableHD: boolean = false,
+  steps: number = 4
+): Promise<GeneratedImage> => {
+  let { width, height } = getDimensions(aspectRatio, enableHD);
+
+  return runWithTokenRetry(async (token) => {
+    try {
+      // Data: ["Prompt", Seed, Randomize seed (false), Width, Height, steps]
+      const queue = await fetch(FLUX_SCHNELL_BASE_API_URL + '/gradio_api/call/infer', {
+        method: "POST",
+        headers: getAuthHeaders(token),
+        body: JSON.stringify({
+          data: [prompt, seed, false, width, height, steps]
+        })
+      });
+      const { event_id } = await queue.json();
+      const response = await fetch(FLUX_SCHNELL_BASE_API_URL + '/gradio_api/call/infer/' + event_id, {
+        headers: getAuthHeaders(token)
+      });
+      const result = await response.text();
+      const data = extractCompleteEventData(result);
+
+      if (!data) throw new Error("error_invalid_response");
+
+      return {
+        id: generateUUID(),
+        url: data[0].url,
+        model: 'flux-1-schnell',
+        prompt,
+        aspectRatio,
+        timestamp: Date.now(),
+        seed,
+        steps
+      };
+    } catch (error) {
+      console.error("Flux Schnell Generation Error:", error);
+      throw error;
     }
   });
 };
@@ -257,24 +288,24 @@ const generateQwenImage = async (
 ): Promise<GeneratedImage> => {
 
   return runWithTokenRetry(async (token) => {
-    try {    
-        const queue = await fetch(QWEN_IMAGE_BASE_API_URL + '/gradio_api/call/generate_image', {
+    try {
+      const queue = await fetch(QWEN_IMAGE_BASE_API_URL + '/gradio_api/call/generate_image', {
         method: "POST",
         headers: getAuthHeaders(token),
         body: JSON.stringify({
-            data: [prompt, seed || 42, seed === undefined, aspectRatio, 3, steps]
+          data: [prompt, seed || 42, seed === undefined, aspectRatio, 3, steps]
         })
-        });
-        const { event_id } = await queue.json();
-        const response = await fetch(QWEN_IMAGE_BASE_API_URL + '/gradio_api/call/generate_image/' + event_id, {
+      });
+      const { event_id } = await queue.json();
+      const response = await fetch(QWEN_IMAGE_BASE_API_URL + '/gradio_api/call/generate_image/' + event_id, {
         headers: getAuthHeaders(token)
-        });
-        const result = await response.text();
-        const data = extractCompleteEventData(result);
+      });
+      const result = await response.text();
+      const data = extractCompleteEventData(result);
 
-        if (!data) throw new Error("error_invalid_response");
+      if (!data) throw new Error("error_invalid_response");
 
-        return {
+      return {
         id: generateUUID(),
         url: data[0].url,
         model: 'qwen-image-fast',
@@ -283,10 +314,10 @@ const generateQwenImage = async (
         timestamp: Date.now(),
         seed: parseInt(data[1].replace('Seed used for generation: ', '')),
         steps
-        };
+      };
     } catch (error) {
-        console.error("Qwen Image Fast Generation Error:", error);
-        throw error;
+      console.error("Qwen Image Fast Generation Error:", error);
+      throw error;
     }
   });
 };
@@ -298,27 +329,27 @@ const generateOvisImage = async (
   enableHD: boolean = false,
   steps: number = 24
 ): Promise<GeneratedImage> => {
-  let { width, height } = getZImageDimensions(aspectRatio, enableHD);
+  let { width, height } = getDimensions(aspectRatio, enableHD);
 
   return runWithTokenRetry(async (token) => {
     try {
-        const queue = await fetch(OVIS_IMAGE_BASE_API_URL + '/gradio_api/call/generate', {
+      const queue = await fetch(OVIS_IMAGE_BASE_API_URL + '/gradio_api/call/generate', {
         method: "POST",
         headers: getAuthHeaders(token),
         body: JSON.stringify({
-            data: [prompt, height, width, seed, steps, 4]
+          data: [prompt, height, width, seed, steps, 4]
         })
-        });
-        const { event_id } = await queue.json();
-        const response = await fetch(OVIS_IMAGE_BASE_API_URL + '/gradio_api/call/generate/' + event_id, {
+      });
+      const { event_id } = await queue.json();
+      const response = await fetch(OVIS_IMAGE_BASE_API_URL + '/gradio_api/call/generate/' + event_id, {
         headers: getAuthHeaders(token)
-        });
-        const result = await response.text();
-        const data = extractCompleteEventData(result);
+      });
+      const result = await response.text();
+      const data = extractCompleteEventData(result);
 
-        if (!data) throw new Error("error_invalid_response");
+      if (!data) throw new Error("error_invalid_response");
 
-        return {
+      return {
         id: generateUUID(),
         url: data[0].url,
         model: 'ovis-image',
@@ -327,10 +358,10 @@ const generateOvisImage = async (
         timestamp: Date.now(),
         seed,
         steps
-        };
+      };
     } catch (error) {
-        console.error("Ovis Image Generation Error:", error);
-        throw error;
+      console.error("Ovis Image Generation Error:", error);
+      throw error;
     }
   });
 };
@@ -341,40 +372,45 @@ export const generateImage = async (
   aspectRatio: AspectRatioOption,
   seed?: number,
   enableHD: boolean = false,
-  steps?: number
+  steps?: number,
+  guidanceScale?: number
 ): Promise<GeneratedImage> => {
-  if (model === 'qwen-image-fast') {
+  const finalSeed = seed ?? Math.round(Math.random() * 2147483647);
+
+  if (model === 'flux-1-schnell') {
+    return generateFluxSchnellImage(prompt, aspectRatio, finalSeed, enableHD, steps);
+  } else if (model === 'qwen-image-fast') {
     return generateQwenImage(prompt, aspectRatio, seed, steps);
   } else if (model === 'ovis-image') {
-    return generateOvisImage(prompt, aspectRatio, seed, enableHD, steps)
+    return generateOvisImage(prompt, aspectRatio, finalSeed, enableHD, steps)
   } else {
-    return generateZImage(prompt, aspectRatio, seed, enableHD, steps);
+    return generateZImage(prompt, aspectRatio, finalSeed, enableHD, steps);
   }
 };
 
 export const upscaler = async (url: string): Promise<{ url: string }> => {
   return runWithTokenRetry(async (token) => {
-    try {    
-        const queue = await fetch(UPSCALER_BASE_API_URL + '/gradio_api/call/realesrgan', {
+    try {
+      const queue = await fetch(UPSCALER_BASE_API_URL + '/gradio_api/call/realesrgan', {
         method: "POST",
         headers: getAuthHeaders(token),
         body: JSON.stringify({
-            data: [{"path": url,"meta":{"_type":"gradio.FileData"}}, 'RealESRGAN_x4plus', 0.5, false, 4]
+          data: [{ "path": url, "meta": { "_type": "gradio.FileData" } }, 'RealESRGAN_x4plus', 0.5, false, 4]
         })
-        });
-        const { event_id } = await queue.json();
-        const response = await fetch(UPSCALER_BASE_API_URL + '/gradio_api/call/realesrgan/' + event_id, {
+      });
+      const { event_id } = await queue.json();
+      const response = await fetch(UPSCALER_BASE_API_URL + '/gradio_api/call/realesrgan/' + event_id, {
         headers: getAuthHeaders(token)
-        });
-        const result = await response.text();
-        const data = extractCompleteEventData(result);
+      });
+      const result = await response.text();
+      const data = extractCompleteEventData(result);
 
-        if (!data) throw new Error("error_invalid_response");
+      if (!data) throw new Error("error_invalid_response");
 
-        return { url: data[0].url };
+      return { url: data[0].url };
     } catch (error) {
-        console.error("Upscaler Error:", error);
-        throw new Error("error_upscale_failed");
+      console.error("Upscaler Error:", error);
+      throw new Error("error_upscale_failed");
     }
   });
 };
@@ -408,12 +444,12 @@ export const optimizePrompt = async (originalPrompt: string, lang: string): Prom
     });
 
     if (!response.ok) {
-        throw new Error("error_prompt_optimization_failed");
+      throw new Error("error_prompt_optimization_failed");
     }
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content;
-    
+
     return content || originalPrompt;
   } catch (error) {
     console.error("Prompt Optimization Error:", error);

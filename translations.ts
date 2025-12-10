@@ -1,5 +1,4 @@
 
-
 export type Language = 'en' | 'zh';
 
 export const translations = {
@@ -64,6 +63,9 @@ export const translations = {
     hdDisabled: "Enable High Definition",
     advancedSettings: "Advanced Settings",
     steps: "Steps",
+    guidanceScale: "Guidance Scale",
+    autoTranslate: "Auto Translate",
+    translating: "Translating...",
 
     // Tabs
     tab_general: "General",
@@ -86,6 +88,7 @@ export const translations = {
     error_invalid_response: "Invalid response from the server.",
     error_prompt_optimization_failed: "Failed to optimize prompt. Please try again.",
     error_upscale_failed: "Failed to upscale image.",
+    error_translation_failed: "Translation failed. Proceeding with original prompt.",
 
     // FAQ
     faq_q1: "Is this service free to use?",
@@ -176,6 +179,9 @@ export const translations = {
     hdDisabled: "启用高清模式",
     advancedSettings: "高级参数",
     steps: "步数",
+    guidanceScale: "提示词权重",
+    autoTranslate: "自动翻译",
+    translating: "翻译中...",
     
     // Tabs
     tab_general: "通用",
@@ -198,6 +204,7 @@ export const translations = {
     error_invalid_response: "服务器返回了无效的响应。",
     error_prompt_optimization_failed: "优化提示词失败，请重试。",
     error_upscale_failed: "图片放大失败。",
+    error_translation_failed: "翻译失败，将使用原始提示词继续。",
 
     // FAQ
     faq_q1: "这个服务是免费的吗？",

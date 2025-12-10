@@ -1,5 +1,4 @@
 
-
 import { GeneratedImage, AspectRatioOption, ModelOption } from "../types";
 import { generateUUID, getSystemPromptContent, FIXED_SYSTEM_PROMPT_SUFFIX, getOptimizationModel } from "./utils";
 
@@ -122,44 +121,32 @@ const runWithGiteeTokenRetry = async <T>(operation: (token: string) => Promise<T
 
 // --- Dimensions Logic ---
 
-const getDimensions = (ratio: AspectRatioOption, enableHD: boolean): { width: number; height: number } => {
-  if (enableHD) {
-    switch (ratio) {
-      case "16:9":
-        return { width: 2048, height: 1152 };
-      case "4:3":
-        return { width: 2048, height: 1536 };
-      case "3:2":
-        return { width: 1920, height: 1280 };
-      case "9:16":
-        return { width: 1152, height: 2048 };
-      case "3:4":
-        return { width: 1536, height: 2048 };
-      case "2:3":
-        return { width: 1280, height: 1920 };
-      case "1:1":
-      default:
-        return { width: 2048, height: 2048 };
+const getBaseDimensions = (ratio: AspectRatioOption) => {
+    switch(ratio) {
+        case "16:9": return { width: 1024, height: 576 };
+        case "4:3": return { width: 1024, height: 768 };
+        case "3:2": return { width: 960, height: 640 };
+        case "9:16": return { width: 576, height: 1024 };
+        case "3:4": return { width: 768, height: 1024 };
+        case "2:3": return { width: 640, height: 960 };
+        case "1:1": default: return { width: 1024, height: 1024 };
     }
-  } else {
-      switch (ratio) {
-        case "16:9":
-          return { width: 1024, height: 576 };
-        case "4:3":
-          return { width: 1024, height: 768 };
-        case "3:2":
-          return { width: 960, height: 640 };
-        case "9:16":
-          return { width: 576, height: 1024 };
-        case "3:4":
-          return { width: 768, height: 1024 };
-        case "2:3":
-          return { width: 640, height: 960 };
-        case "1:1":
-        default:
-          return { width: 1024, height: 1024 };
-    }
+}
+
+const getDimensions = (ratio: AspectRatioOption, enableHD: boolean, model: ModelOption): { width: number; height: number } => {
+  const base = getBaseDimensions(ratio);
+  
+  if (!enableHD) return base;
+
+  let multiplier = 2; // Default multiplier for Z-Image Turbo
+  if (['flux-1-schnell', 'FLUX_1-Krea-dev', 'FLUX.1-dev'].includes(model)) {
+      multiplier = 1.5;
   }
+
+  return {
+      width: Math.round(base.width * multiplier),
+      height: Math.round(base.height * multiplier)
+  };
 };
 
 // --- Service Logic ---
@@ -170,30 +157,37 @@ export const generateGiteeImage = async (
   aspectRatio: AspectRatioOption,
   seed?: number,
   steps?: number,
-  enableHD: boolean = false
+  enableHD: boolean = false,
+  guidanceScale?: number
 ): Promise<GeneratedImage> => {
-  const { width, height } = getDimensions(aspectRatio, enableHD);
+  const { width, height } = getDimensions(aspectRatio, enableHD, model);
   const finalSeed = seed ?? Math.floor(Math.random() * 2147483647);
   // Default steps logic handled in App.tsx, but good to have fallback here
   const finalSteps = steps ?? 9; 
 
   return runWithGiteeTokenRetry(async (token) => {
     try {
+      const requestBody: any = {
+        prompt,
+        model,
+        width,
+        height,
+        seed: finalSeed,
+        num_inference_steps: finalSteps,
+        response_format: "url"
+      };
+
+      if (guidanceScale !== undefined) {
+        requestBody.guidance_scale = guidanceScale;
+      }
+
       const response = await fetch(GITEE_GENERATE_API_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`
         },
-        body: JSON.stringify({
-          prompt,
-          model,
-          width,
-          height,
-          seed: finalSeed,
-          num_inference_steps: finalSteps,
-          response_format: "url"
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (!response.ok) {
@@ -216,6 +210,7 @@ export const generateGiteeImage = async (
         timestamp: Date.now(),
         seed: finalSeed,
         steps: finalSteps,
+        guidanceScale,
         provider: 'gitee'
       };
     } catch (error) {

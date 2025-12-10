@@ -1,7 +1,9 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { generateImage, optimizePrompt, upscaler } from './services/hfService';
 import { generateGiteeImage, optimizePromptGitee } from './services/giteeService';
 import { generateMSImage, optimizePromptMS } from './services/msService';
+import { translatePrompt } from './services/utils';
 import { GeneratedImage, AspectRatioOption, ModelOption, ProviderOption } from './types';
 import { HistoryGallery } from './components/HistoryGallery';
 import { Select } from './components/Select';
@@ -40,21 +42,29 @@ import {
   Server,
   ChevronDown,
   ChevronUp,
+  Languages,
 } from 'lucide-react';
 
 const HF_MODEL_OPTIONS = [
   { value: 'z-image-turbo', label: 'Z-Image Turbo' },
   { value: 'qwen-image-fast', label: 'Qwen Image Fast' },
-  { value: 'ovis-image', label: 'Ovis Image' }
+  { value: 'ovis-image', label: 'Ovis Image' },
+  { value: 'flux-1-schnell', label: 'FLUX.1 Schnell' }
 ];
 
 const GITEE_MODEL_OPTIONS = [
   { value: 'z-image-turbo', label: 'Z-Image Turbo' },
-  { value: 'Qwen-Image', label: 'Qwen Image' }
+  { value: 'Qwen-Image', label: 'Qwen Image' },
+  { value: 'flux-1-schnell', label: 'FLUX.1 Schnell' },
+  { value: 'FLUX_1-Krea-dev', label: 'FLUX.1 Krea' },
+  { value: 'FLUX.1-dev', label: 'FLUX.1' }
 ];
 
 const MS_MODEL_OPTIONS = [
-  { value: 'Tongyi-MAI/Z-Image-Turbo', label: 'Z-Image Turbo' }
+  { value: 'Tongyi-MAI/Z-Image-Turbo', label: 'Z-Image Turbo' },
+  { value: 'black-forest-labs/FLUX.2-dev', label: 'FLUX.2' },
+  { value: 'black-forest-labs/FLUX.1-Krea-dev', label: 'FLUX.1 Krea' },
+  { value: 'MusePublic/489_ckpt_FLUX_1', label: 'FLUX.1' }
 ];
 
 const PROVIDER_OPTIONS = [
@@ -63,18 +73,48 @@ const PROVIDER_OPTIONS = [
     { value: 'modelscope', label: 'Model Scope' }
 ];
 
+const FLUX_MODELS = [
+    'flux-1-schnell', 
+    'FLUX_1-Krea-dev', 
+    'FLUX.1-dev',
+    'black-forest-labs/FLUX.2-dev',
+    'black-forest-labs/FLUX.1-Krea-dev',
+    'MusePublic/489_ckpt_FLUX_1'
+];
+const Z_IMAGE_MODELS = ['z-image-turbo', 'Tongyi-MAI/Z-Image-Turbo'];
+
 const getModelConfig = (provider: ProviderOption, model: ModelOption) => {
   if (provider === 'gitee') {
     if (model === 'z-image-turbo') return { min: 1, max: 20, default: 9 };
-    if (model === 'Qwen-Image') return { min: 4, max: 50, default: 24 };
+    if (model === 'Qwen-Image') return { min: 4, max: 50, default: 20 };
+    if (model === 'flux-1-schnell') return { min: 1, max: 50, default: 4 };
+    if (model === 'FLUX_1-Krea-dev') return { min: 1, max: 50, default: 20 };
+    if (model === 'FLUX.1-dev') return { min: 1, max: 50, default: 20 };
   } else if (provider === 'modelscope') {
     if (model === 'Tongyi-MAI/Z-Image-Turbo') return { min: 1, max: 20, default: 9 };
+    if (model === 'black-forest-labs/FLUX.2-dev') return { min: 1, max: 50, default: 24 };
+    if (model === 'black-forest-labs/FLUX.1-Krea-dev') return { min: 1, max: 50, default: 24 };
+    if (model === 'MusePublic/489_ckpt_FLUX_1') return { min: 1, max: 50, default: 24 };
   } else {
     if (model === 'z-image-turbo') return { min: 1, max: 20, default: 9 };
+    if (model === 'flux-1-schnell') return { min: 1, max: 50, default: 4 };
     if (model === 'qwen-image-fast') return { min: 4, max: 28, default: 8 };
-    if (model === 'ovis-image') return { min: 1, max: 100, default: 24 };
+    if (model === 'ovis-image') return { min: 1, max: 50, default: 24 };
   }
   return { min: 1, max: 20, default: 9 }; // fallback
+}
+
+const getGuidanceScaleConfig = (model: ModelOption, provider: ProviderOption) => {
+  if (provider === 'gitee') {
+    if (model === 'flux-1-schnell') return { min: 0, max: 50, step: 0.1, default: 7.5 };
+    if (model === 'FLUX_1-Krea-dev') return { min: 0, max: 20, step: 0.1, default: 4.5 };
+    if (model === 'FLUX.1-dev') return { min: 0, max: 20, step: 0.1, default: 4.5 };
+  } else if (provider === 'modelscope') {
+    if (model === 'black-forest-labs/FLUX.2-dev') return { min: 1, max: 10, step: 0.1, default: 3.5 };
+    if (model === 'black-forest-labs/FLUX.1-Krea-dev') return { min: 1, max: 20, step: 0.1, default: 3.5 };
+    if (model === 'MusePublic/489_ckpt_FLUX_1') return { min: 1, max: 20, step: 0.1, default: 3.5 };
+  }
+  return null;
 }
 
 export default function App() {
@@ -105,8 +145,12 @@ export default function App() {
   const [aspectRatio, setAspectRatio] = useState<AspectRatioOption>('1:1');
   const [seed, setSeed] = useState<string>(''); 
   const [steps, setSteps] = useState<number>(9);
+  const [guidanceScale, setGuidanceScale] = useState<number>(3.5);
   const [enableHD, setEnableHD] = useState<boolean>(false);
+  const [autoTranslate, setAutoTranslate] = useState<boolean>(false);
+  
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isTranslating, setIsTranslating] = useState<boolean>(false);
   const [isOptimizing, setIsOptimizing] = useState<boolean>(false);
   const [isUpscaling, setIsUpscaling] = useState<boolean>(false);
   const [isDownloading, setIsDownloading] = useState<boolean>(false);
@@ -178,11 +222,25 @@ export default function App() {
     sessionStorage.setItem('prompt_history', JSON.stringify(promptHistory));
   }, [promptHistory]);
 
-  // Update steps when model/provider changes
+  // Update steps and guidance scale when model/provider changes
   useEffect(() => {
       const config = getModelConfig(provider, model);
       setSteps(config.default);
+
+      const gsConfig = getGuidanceScaleConfig(model, provider);
+      if (gsConfig) {
+          setGuidanceScale(gsConfig.default);
+      }
   }, [provider, model]);
+
+  // Handle Auto Translate default state based on model
+  useEffect(() => {
+    if (FLUX_MODELS.includes(model)) {
+        setAutoTranslate(true);
+    } else {
+        setAutoTranslate(false);
+    }
+  }, [model]);
 
   // Close prompt history on click outside
   useEffect(() => {
@@ -258,24 +316,49 @@ export default function App() {
     setIsComparing(false);
     setTempUpscaledImage(null);
     
+    // NOTE: Don't start timer yet if translating
+    
+    let finalPrompt = prompt;
+
+    // Handle Auto Translate
+    if (autoTranslate) {
+        setIsTranslating(true);
+        try {
+            finalPrompt = await translatePrompt(prompt);
+            setPrompt(finalPrompt); // Update UI with translated text
+        } catch (err: any) {
+            console.error("Translation failed", err);
+        } finally {
+            setIsTranslating(false);
+        }
+    }
+
     const startTime = startTimer();
 
     try {
       const seedNumber = seed.trim() === '' ? undefined : parseInt(seed, 10);
+      const gsConfig = getGuidanceScaleConfig(model, provider);
+      const currentGuidanceScale = gsConfig ? guidanceScale : undefined;
+
       let result;
 
       if (provider === 'gitee') {
-         result = await generateGiteeImage(model, prompt, aspectRatio, seedNumber, steps, enableHD);
+         result = await generateGiteeImage(model, finalPrompt, aspectRatio, seedNumber, steps, enableHD, currentGuidanceScale);
       } else if (provider === 'modelscope') {
-         result = await generateMSImage(model, prompt, aspectRatio, seedNumber, steps, enableHD);
+         result = await generateMSImage(model, finalPrompt, aspectRatio, seedNumber, steps, enableHD, currentGuidanceScale);
       } else {
-         result = await generateImage(model, prompt, aspectRatio, seedNumber, enableHD, steps);
+         result = await generateImage(model, finalPrompt, aspectRatio, seedNumber, enableHD, steps, currentGuidanceScale);
       }
       
       const endTime = Date.now();
       const duration = (endTime - startTime) / 1000;
       
-      const newImage = { ...result, duration, provider };
+      const newImage = { 
+          ...result, 
+          duration, 
+          provider, 
+          guidanceScale: currentGuidanceScale 
+      };
       
       setCurrentImage(newImage);
       setHistory(prev => [newImage, ...prev]);
@@ -308,6 +391,7 @@ export default function App() {
     setIsComparing(false);
     setTempUpscaledImage(null);
     setError(null);
+    // Auto translate state resets via model effect
   };
 
   const handleUpscale = async () => {
@@ -565,6 +649,7 @@ export default function App() {
   const isWorking = isLoading;
   const currentModelOptions = provider === 'gitee' ? GITEE_MODEL_OPTIONS : (provider === 'modelscope' ? MS_MODEL_OPTIONS : HF_MODEL_OPTIONS);
   const currentModelConfig = getModelConfig(provider, model);
+  const guidanceScaleConfig = getGuidanceScaleConfig(model, provider);
 
   return (
     <div className="relative flex h-auto min-h-screen w-full flex-col overflow-x-hidden bg-gradient-brilliant">
@@ -668,27 +753,44 @@ export default function App() {
                           </div>
                         </div>
 
-                        <Tooltip content={t.optimizeTitle}>
-                            <button
-                                onClick={handleOptimizePrompt}
-                                disabled={isOptimizing || !prompt.trim()}
-                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white/60 bg-white/5 hover:bg-white/10 hover:text-purple-300 rounded-lg transition-all border border-white/5 disabled:opacity-50 disabled:cursor-not-allowed"
-                                type="button"
-                            >
-                                {isOptimizing ? (
-                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                ) : (
-                                    <Wand2 className="w-3.5 h-3.5" />
-                                )}
-                                {isOptimizing ? t.optimizing : t.optimize}
-                            </button>
-                        </Tooltip>
+                        <div className="flex items-center gap-2">
+                            {/* Auto Translate Toggle */}
+                            <Tooltip content={autoTranslate ? t.autoTranslate : t.autoTranslate}>
+                                <div className="flex items-center gap-1.5 bg-white/5 px-3 py-1.5 rounded-lg border border-white/5">
+                                    <Languages className="w-3.5 h-3.5 text-white/60" />
+                                    <button
+                                        onClick={() => setAutoTranslate(!autoTranslate)}
+                                        className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors focus:outline-none focus:ring-1 focus:ring-purple-500/50 ${autoTranslate ? 'bg-purple-600' : 'bg-white/10'}`}
+                                    >
+                                        <span
+                                            className={`${autoTranslate ? 'translate-x-3.5' : 'translate-x-0.5'} inline-block h-3 w-3 transform rounded-full bg-white transition-transform`}
+                                        />
+                                    </button>
+                                </div>
+                            </Tooltip>
+
+                            <Tooltip content={t.optimizeTitle}>
+                                <button
+                                    onClick={handleOptimizePrompt}
+                                    disabled={isOptimizing || !prompt.trim()}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white/60 bg-white/5 hover:bg-white/10 hover:text-purple-300 rounded-lg transition-all border border-white/5 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    type="button"
+                                >
+                                    {isOptimizing ? (
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    ) : (
+                                        <Wand2 className="w-3.5 h-3.5" />
+                                    )}
+                                    {t.optimize}
+                                </button>
+                            </Tooltip>
+                        </div>
                     </div>
                     <textarea 
                       id="prompt-input"
                       value={prompt}
                       onChange={(e) => setPrompt(e.target.value)}
-                      disabled={isOptimizing}
+                      disabled={isOptimizing || isTranslating}
                       className="form-input flex w-full min-w-0 flex-1 resize-none rounded-lg text-white/90 focus:outline-0 focus:ring-2 focus:ring-purple-500/50 border border-white/10 bg-white/5 focus:border-purple-500 min-h-32 placeholder:text-white/30 p-4 text-base font-normal leading-normal transition-all disabled:opacity-50 disabled:cursor-not-allowed" 
                       placeholder={t.promptPlaceholder}
                     />
@@ -713,7 +815,7 @@ export default function App() {
                     options={currentModelOptions}
                     icon={<Cpu className="w-5 h-5" />}
                     headerContent={
-                        (model === 'z-image-turbo' || model === 'Tongyi-MAI/Z-Image-Turbo') && (
+                        (Z_IMAGE_MODELS.includes(model) || FLUX_MODELS.includes(model)) && (
                             <div className="flex items-center gap-2 animate-in fade-in duration-300">
                                 <span className="text-xs font-medium text-white/50">{t.hd}</span>
                                 <Tooltip content={enableHD ? t.hdEnabled : t.hdDisabled}>
@@ -756,23 +858,44 @@ export default function App() {
                      <div className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${isAdvancedOpen ? 'grid-rows-[1fr] mt-4' : 'grid-rows-[0fr]'}`}>
                         <div className="overflow-hidden">
                            <div className="space-y-5">
-                               {/* Steps */}
-                               <div className="group">
-                                   <div className="flex items-center justify-between pb-2">
-                                       <p className="text-white/80 text-sm font-medium">{t.steps}</p>
-                                       <span className="text-white/50 text-xs bg-white/5 px-2 py-0.5 rounded font-mono">{steps}</span>
+                                {/* Steps */}
+                                <div className="group">
+                                    <div className="flex items-center justify-between pb-2">
+                                        <p className="text-white/80 text-sm font-medium">{t.steps}</p>
+                                        <span className="text-white/50 text-xs bg-white/5 px-2 py-0.5 rounded font-mono">{steps}</span>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <input 
+                                            type="range"
+                                            min={currentModelConfig.min}
+                                            max={currentModelConfig.max}
+                                            value={steps}
+                                            onChange={(e) => setSteps(Number(e.target.value))}
+                                            className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                                        />
+                                    </div>
+                                </div>
+
+                               {/* Guidance Scale - Only for Flux Models */}
+                               {guidanceScaleConfig && (
+                                   <div className="group">
+                                       <div className="flex items-center justify-between pb-2">
+                                           <p className="text-white/80 text-sm font-medium">{t.guidanceScale}</p>
+                                           <span className="text-white/50 text-xs bg-white/5 px-2 py-0.5 rounded font-mono">{guidanceScale.toFixed(1)}</span>
+                                       </div>
+                                       <div className="flex items-center gap-3">
+                                           <input 
+                                               type="range"
+                                               min={guidanceScaleConfig.min}
+                                               max={guidanceScaleConfig.max}
+                                               step={guidanceScaleConfig.step}
+                                               value={guidanceScale}
+                                               onChange={(e) => setGuidanceScale(Number(e.target.value))}
+                                               className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                                           />
+                                       </div>
                                    </div>
-                                   <div className="flex items-center gap-3">
-                                       <input 
-                                           type="range"
-                                           min={currentModelConfig.min}
-                                           max={currentModelConfig.max}
-                                           value={steps}
-                                           onChange={(e) => setSteps(Number(e.target.value))}
-                                           className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-purple-500"
-                                       />
-                                   </div>
-                               </div>
+                               )}
 
                                {/* Seed */}
                                <div className="group">
@@ -825,13 +948,13 @@ export default function App() {
               <div className="flex items-center gap-3">
                 <button 
                     onClick={handleGenerate}
-                    disabled={isWorking || !prompt.trim()}
+                    disabled={isWorking || !prompt.trim() || isTranslating}
                     className="group relative flex-1 flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-12 px-4 text-white text-lg font-bold leading-normal tracking-[0.015em] transition-all shadow-lg shadow-purple-900/40 generate-button-gradient hover:shadow-purple-700/50 disabled:opacity-70 disabled:cursor-not-allowed disabled:grayscale"
                 >
-                    {isLoading ? (
+                    {isLoading || isTranslating ? (
                     <div className="flex items-center gap-2">
                         <Loader2 className="animate-spin w-5 h-5" />
-                        <span>{t.dreaming}</span>
+                        <span>{isTranslating ? t.translating : t.dreaming}</span>
                     </div>
                     ) : (
                     <span className="flex items-center gap-2">
@@ -872,9 +995,11 @@ export default function App() {
                             </div>
                          </div>
                          <p className="mt-8 text-white/80 font-medium animate-pulse text-lg">
-                            {t.dreaming}
+                            {isTranslating ? t.translating : t.dreaming}
                          </p>
-                         <p className="mt-2 font-mono text-purple-300 text-lg">{elapsedTime.toFixed(1)}s</p>
+                         {!isTranslating && (
+                            <p className="mt-2 font-mono text-purple-300 text-lg">{elapsedTime.toFixed(1)}s</p>
+                         )}
                     </div>
                 ) : null}
 
@@ -970,6 +1095,12 @@ export default function App() {
                                     <div>
                                     <span className="block text-white/40 text-[10px] uppercase tracking-wider font-semibold mb-0.5">{t.seed}</span>
                                     <p className="font-mono text-white/90">{currentImage.seed}</p>
+                                    </div>
+                                )}
+                                {currentImage.guidanceScale !== undefined && (
+                                    <div>
+                                    <span className="block text-white/40 text-[10px] uppercase tracking-wider font-semibold mb-0.5">{t.guidanceScale}</span>
+                                    <p className="font-mono text-white/90">{currentImage.guidanceScale.toFixed(1)}</p>
                                     </div>
                                 )}
                                 {currentImage.steps !== undefined && (

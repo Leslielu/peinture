@@ -1,5 +1,4 @@
 
-
 export function generateUUID(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
     const r = Math.random() * 16 | 0;
@@ -62,4 +61,45 @@ export const saveOptimizationModel = (provider: string, model: string) => {
           localStorage.setItem(OPTIM_MODEL_STORAGE_PREFIX + provider, model.trim());
       }
   }
+};
+
+// --- Translation Service ---
+
+const POLLINATIONS_API_URL = "https://text.pollinations.ai/openai";
+
+export const translatePrompt = async (text: string): Promise<string> => {
+    try {
+        const response = await fetch(POLLINATIONS_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                model: 'openai-fast',
+                messages: [
+                    {
+                        role: 'system',
+                        content: "You are a translation engine. Identify the language of the user input. If it is English, return the input exactly as is. If it is not English, translate it to English. Output only the final English text, no explanations, no quotes."
+                    },
+                    {
+                        role: 'user',
+                        content: text
+                    }
+                ],
+                stream: false
+            }),
+        });
+
+        if (!response.ok) {
+            throw new Error("Translation request failed");
+        }
+
+        const data = await response.json();
+        const content = data.choices?.[0]?.message?.content;
+
+        return content || text;
+    } catch (error) {
+        console.error("Translation Error:", error);
+        throw new Error("error_translation_failed");
+    }
 };

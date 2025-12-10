@@ -1,5 +1,4 @@
 
-
 import { GeneratedImage, AspectRatioOption, ModelOption } from "../types";
 import { generateUUID, getSystemPromptContent, FIXED_SYSTEM_PROMPT_SUFFIX, getOptimizationModel } from "./utils";
 
@@ -124,44 +123,30 @@ const runWithMsTokenRetry = async <T>(operation: (token: string) => Promise<T>):
 
 // --- Dimensions Logic ---
 
+const getBaseDimensions = (ratio: AspectRatioOption) => {
+    switch(ratio) {
+        case "16:9": return { width: 1024, height: 576 };
+        case "4:3": return { width: 1024, height: 768 };
+        case "3:2": return { width: 960, height: 640 };
+        case "9:16": return { width: 576, height: 1024 };
+        case "3:4": return { width: 768, height: 1024 };
+        case "2:3": return { width: 640, height: 960 };
+        case "1:1": default: return { width: 1024, height: 1024 };
+    }
+}
+
 const getDimensions = (ratio: AspectRatioOption, enableHD: boolean): { width: number; height: number } => {
+  const base = getBaseDimensions(ratio);
+
   if (enableHD) {
-    switch (ratio) {
-      case "16:9":
-        return { width: 2048, height: 1152 };
-      case "4:3":
-        return { width: 2048, height: 1536 };
-      case "3:2":
-        return { width: 1920, height: 1280 };
-      case "9:16":
-        return { width: 1152, height: 2048 };
-      case "3:4":
-        return { width: 1536, height: 2048 };
-      case "2:3":
-        return { width: 1280, height: 1920 };
-      case "1:1":
-      default:
-        return { width: 2048, height: 2048 };
-    }
-  } else {
-      switch (ratio) {
-        case "16:9":
-          return { width: 1024, height: 576 };
-        case "4:3":
-          return { width: 1024, height: 768 };
-        case "3:2":
-          return { width: 960, height: 640 };
-        case "9:16":
-          return { width: 576, height: 1024 };
-        case "3:4":
-          return { width: 768, height: 1024 };
-        case "2:3":
-          return { width: 640, height: 960 };
-        case "1:1":
-        default:
-          return { width: 1024, height: 1024 };
-    }
+      // Both Z-Image Turbo and Flux models use 2x multiplier for HD
+      return {
+          width: Math.round(base.width * 2),
+          height: Math.round(base.height * 2)
+      };
   }
+  
+  return base;
 };
 
 // --- Service Logic ---
@@ -172,31 +157,35 @@ export const generateMSImage = async (
   aspectRatio: AspectRatioOption,
   seed?: number,
   steps?: number,
-  enableHD: boolean = false
+  enableHD: boolean = false,
+  guidanceScale?: number
 ): Promise<GeneratedImage> => {
-  // Only apply HD settings if the model is Z-Image Turbo
-  const shouldUseHD = enableHD && model === 'Tongyi-MAI/Z-Image-Turbo';
-  
-  const { width, height } = getDimensions(aspectRatio, shouldUseHD);
+  const { width, height } = getDimensions(aspectRatio, enableHD);
   const finalSeed = seed ?? Math.floor(Math.random() * 2147483647);
   const finalSteps = steps ?? 9; 
   const sizeString = `${width}x${height}`;
 
   return runWithMsTokenRetry(async (token) => {
     try {
+      const requestBody: any = {
+          prompt,
+          model,
+          size: sizeString,
+          seed: finalSeed,
+          steps: finalSteps
+      };
+
+      if (guidanceScale !== undefined) {
+          requestBody.guidance = guidanceScale;
+      }
+
       const response = await fetch(MS_GENERATE_API_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`
         },
-        body: JSON.stringify({
-          prompt,
-          model,
-          size: sizeString,
-          seed: finalSeed,
-          steps: finalSteps
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (!response.ok) {
@@ -221,6 +210,7 @@ export const generateMSImage = async (
         timestamp: Date.now(),
         seed: finalSeed,
         steps: finalSteps,
+        guidanceScale,
         provider: 'modelscope'
       };
 
