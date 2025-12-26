@@ -7,6 +7,36 @@ export function generateUUID(): string {
   });
 }
 
+// --- Security: Image URL Validation ---
+
+/**
+ * Validates that an image URL is safe to use.
+ * Only allows HTTPS URLs and data URIs with image MIME types.
+ * Prevents XSS attacks via javascript: or other malicious protocols.
+ */
+export function isSafeImageUrl(url: string | undefined | null): boolean {
+  if (!url || typeof url !== 'string') return false;
+
+  const trimmedUrl = url.trim();
+  if (!trimmedUrl) return false;
+
+  // Allow HTTPS URLs
+  if (trimmedUrl.startsWith('https://')) return true;
+
+  // Allow data URIs only for images
+  if (trimmedUrl.startsWith('data:image/')) return true;
+
+  // Reject everything else (http://, javascript:, etc.)
+  return false;
+}
+
+/**
+ * Returns a safe image URL or a placeholder if the URL is unsafe.
+ */
+export function getSafeImageUrl(url: string | undefined | null, placeholder: string = ''): string {
+  return isSafeImageUrl(url) ? url! : placeholder;
+}
+
 // --- System Prompt Management ---
 
 export const FIXED_SYSTEM_PROMPT_SUFFIX = "\nI will ensure the output text is in {language}.";

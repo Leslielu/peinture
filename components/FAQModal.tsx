@@ -39,26 +39,26 @@ export const FAQModal: React.FC<FAQModalProps> = ({ isOpen, onClose, t }) => {
             answer: (
                 <div className="space-y-2">
                     <p>
-                        {t.faq_a4_hf_pre} 
-                        <a href="https://huggingface.co/" target="_blank" className="text-purple-400 hover:text-purple-300 mx-1 underline decoration-purple-400/30 inline-flex items-center gap-0.5 hover:decoration-purple-300 transition-colors">
+                        {t.faq_a4_hf_pre}
+                        <a href="https://huggingface.co/" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-300 mx-1 underline decoration-purple-400/30 inline-flex items-center gap-0.5 hover:decoration-purple-300 transition-colors">
                             Hugging Face <ExternalLink className="w-3 h-3" />
                         </a>
                         {t.faq_a4_hf_mid}
-                        <a href="https://pollinations.ai/" target="_blank" className="text-purple-400 hover:text-purple-300 mx-1 underline decoration-purple-400/30 inline-flex items-center gap-0.5 hover:decoration-purple-300 transition-colors">
+                        <a href="https://pollinations.ai/" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-300 mx-1 underline decoration-purple-400/30 inline-flex items-center gap-0.5 hover:decoration-purple-300 transition-colors">
                             Pollinations.ai <ExternalLink className="w-3 h-3" />
                         </a>
                         {t.faq_a4_hf_post}
                     </p>
                     <p>
                         {t.faq_a4_gitee_pre}
-                        <a href="https://ai.gitee.com/" target="_blank" className="text-purple-400 hover:text-purple-300 mx-1 underline decoration-purple-400/30 inline-flex items-center gap-0.5 hover:decoration-purple-300 transition-colors">
+                        <a href="https://ai.gitee.com/" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-300 mx-1 underline decoration-purple-400/30 inline-flex items-center gap-0.5 hover:decoration-purple-300 transition-colors">
                             Gitee AI <ExternalLink className="w-3 h-3" />
                         </a>
                         {t.faq_a4_gitee_post}
                     </p>
                     <p>
                         {t.faq_a4_ms_pre}
-                        <a href="https://modelscope.cn/" target="_blank" className="text-purple-400 hover:text-purple-300 mx-1 underline decoration-purple-400/30 inline-flex items-center gap-0.5 hover:decoration-purple-300 transition-colors">
+                        <a href="https://modelscope.cn/" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-300 mx-1 underline decoration-purple-400/30 inline-flex items-center gap-0.5 hover:decoration-purple-300 transition-colors">
                             Model Scope <ExternalLink className="w-3 h-3" />
                         </a>
                         {t.faq_a4_ms_post}

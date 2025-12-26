@@ -286,7 +286,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                         )}
 
                                         <p className="mt-3 text-xs text-white/40 leading-relaxed pl-1">
-                                            {t.hfTokenHelp} <a className="text-yellow-500 hover:text-yellow-400 underline decoration-yellow-500/30 underline-offset-2 transition-colors" href="https://huggingface.co/settings/tokens" target="_blank">{t.hfTokenLink}</a> {t.hfTokenHelpEnd}
+                                            {t.hfTokenHelp} <a className="text-yellow-500 hover:text-yellow-400 underline decoration-yellow-500/30 underline-offset-2 transition-colors" href="https://huggingface.co/settings/tokens" target="_blank" rel="noopener noreferrer">{t.hfTokenLink}</a> {t.hfTokenHelpEnd}
                                         </p>
                                     </div>
                                 )}
@@ -343,7 +343,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                         )}
 
                                         <p className="mt-3 text-xs text-white/40 leading-relaxed pl-1">
-                                            {t.giteeTokenHelp} <a className="text-red-500 hover:text-red-400 underline decoration-red-500/30 underline-offset-2 transition-colors" href="https://ai.gitee.com/dashboard/settings/tokens" target="_blank">{t.giteeTokenLink}</a> {t.giteeTokenHelpEnd}
+                                            {t.giteeTokenHelp} <a className="text-red-500 hover:text-red-400 underline decoration-red-500/30 underline-offset-2 transition-colors" href="https://ai.gitee.com/dashboard/settings/tokens" target="_blank" rel="noopener noreferrer">{t.giteeTokenLink}</a> {t.giteeTokenHelpEnd}
                                         </p>
                                     </div>
                                 )}
@@ -400,7 +400,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                         )}
 
                                         <p className="mt-3 text-xs text-white/40 leading-relaxed pl-1">
-                                            {t.msTokenHelp} <a className="text-blue-500 hover:text-blue-400 underline decoration-blue-500/30 underline-offset-2 transition-colors" href="https://modelscope.cn/my/myaccesstoken" target="_blank">{t.msTokenLink}</a> {t.msTokenHelpEnd}
+                                            {t.msTokenHelp} <a className="text-blue-500 hover:text-blue-400 underline decoration-blue-500/30 underline-offset-2 transition-colors" href="https://modelscope.cn/my/myaccesstoken" target="_blank" rel="noopener noreferrer">{t.msTokenLink}</a> {t.msTokenHelpEnd}
                                         </p>
                                     </div>
                                 )}

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ChevronsLeftRight } from 'lucide-react';
+import { getSafeImageUrl } from '../services/utils';
 
 interface ImageComparisonProps {
   beforeImage: string;
@@ -71,22 +72,22 @@ export const ImageComparison: React.FC<ImageComparisonProps> = ({ beforeImage, a
         */}
 
         {/* Base Layer: Upscaled Image (Visible on the Right) */}
-        <img 
-            src={afterImage} 
-            alt={`${alt} Upscaled`} 
-            className="block w-full h-full w-auto h-auto object-contain pointer-events-none" 
+        <img
+            src={getSafeImageUrl(afterImage)}
+            alt={`${alt} Upscaled`}
+            className="block w-full h-full w-auto h-auto object-contain pointer-events-none"
             draggable={false}
         />
 
         {/* Overlay Layer: Original Image (Visible on the Left) */}
-        <div 
+        <div
             className="absolute inset-0 w-full h-full overflow-hidden"
             style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }}
         >
-            <img 
-                src={beforeImage} 
-                alt={`${alt} Original`} 
-                className="absolute inset-0 w-full h-full object-contain pointer-events-none" 
+            <img
+                src={getSafeImageUrl(beforeImage)}
+                alt={`${alt} Original`}
+                className="absolute inset-0 w-full h-full object-contain pointer-events-none"
                 draggable={false}
             />
         </div>

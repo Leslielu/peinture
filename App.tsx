@@ -39,7 +39,7 @@ export default function App() {
 
   // Authentication State
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return sessionStorage.getItem('app_authenticated') === 'true';
+    return localStorage.getItem('app_authenticated') === 'true';
   });
 
   // Dynamic Aspect Ratio Options based on language
@@ -484,6 +484,7 @@ export default function App() {
                     href="https://github.com/Amery2010/peinture"
                     className="flex items-center justify-center p-2 rounded-lg text-white/70 hover:text-purple-400 hover:bg-white/10 transition-all active:scale-95"
                     target="_blank"
+                    rel="noopener noreferrer"
                   >
                     <Github className="w-5 h-5" />
                   </a>

@@ -2,6 +2,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { GeneratedImage } from '../types';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { getSafeImageUrl } from '../services/utils';
 
 interface HistoryGalleryProps {
   images: GeneratedImage[];
@@ -83,7 +84,7 @@ export const HistoryGallery: React.FC<HistoryGalleryProps> = ({ images, onSelect
                 `}
                 >
                 <img
-                    src={img.url}
+                    src={getSafeImageUrl(img.url)}
                     alt={img.prompt}
                     className={`h-full w-full object-cover transform group-hover:scale-110 transition-transform duration-500 ${img.isBlurred ? 'blur-sm' : ''}`}
                     loading="lazy"

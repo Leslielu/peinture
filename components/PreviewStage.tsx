@@ -5,6 +5,7 @@ import { ImageComparison } from './ImageComparison';
 import { Paintbrush, AlertCircle, Sparkles, Timer, Copy, Check } from 'lucide-react';
 import { GeneratedImage } from '../types';
 import { HF_MODEL_OPTIONS, GITEE_MODEL_OPTIONS, MS_MODEL_OPTIONS } from '../constants';
+import { getSafeImageUrl } from '../services/utils';
 
 interface PreviewStageProps {
     currentImage: GeneratedImage | null;
@@ -99,7 +100,7 @@ export const PreviewStage: React.FC<PreviewStageProps> = ({
                                 contentStyle={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}
                             >
                                 <img
-                                    src={currentImage.url}
+                                    src={getSafeImageUrl(currentImage.url)}
                                     alt={currentImage.prompt}
                                     className={`max-w-full max-h-full object-contain shadow-2xl cursor-grab active:cursor-grabbing transition-all duration-300 ${currentImage.isBlurred ? 'blur-lg scale-105' : ''}`}
                                     onContextMenu={(e) => e.preventDefault()}

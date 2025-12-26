@@ -59,7 +59,7 @@ export function LoginPage({ onLogin, language }: LoginPageProps) {
       const hash = await hashPassword(password);
 
       if (hash === PASSWORD_HASH) {
-        sessionStorage.setItem('app_authenticated', 'true');
+        localStorage.setItem('app_authenticated', 'true');
         onLogin();
       } else {
         setError(true);
