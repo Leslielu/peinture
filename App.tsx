@@ -24,6 +24,7 @@ import { PromptInput } from './components/PromptInput';
 import { ControlPanel } from './components/ControlPanel';
 import { PreviewStage } from './components/PreviewStage';
 import { ImageToolbar } from './components/ImageToolbar';
+import { LoginPage } from './components/LoginPage';
 
 export default function App() {
   // Language Initialization
@@ -33,8 +34,13 @@ export default function App() {
     const browserLang = navigator.language.toLowerCase();
     return browserLang.startsWith('zh') ? 'zh' : 'en';
   });
-  
+
   const t = translations[lang];
+
+  // Authentication State
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    return sessionStorage.getItem('app_authenticated') === 'true';
+  });
 
   // Dynamic Aspect Ratio Options based on language
   const aspectRatioOptions = [
@@ -455,6 +461,11 @@ export default function App() {
   };
 
   const isWorking = isLoading;
+
+  // Show login page if not authenticated
+  if (!isAuthenticated) {
+    return <LoginPage onLogin={() => setIsAuthenticated(true)} language={lang} />;
+  }
 
   return (
     <div className="relative flex h-auto min-h-screen w-full flex-col overflow-x-hidden bg-gradient-brilliant">
